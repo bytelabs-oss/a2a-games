@@ -4,3 +4,5 @@ dist/
 .vercel/
 data/
 *.log
+.DS_Store
+config.json

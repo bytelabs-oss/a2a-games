@@ -1,0 +1,213 @@
+.mafia-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* The dark plate behind the banner, day and sky, and the warm text on it. */
+.mafia-overlay {
+  --plate: #302317;
+  --plate-text: #fff4d8;
+  --plate-shadow: 0 4px 14px #00000040;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  font-family: inherit;
+}
+
+.mafia-label,
+.mafia-bubble {
+  position: absolute;
+  transform: translate(-50%, -100%);
+}
+
+.mafia-label {
+  padding: 3px 7px;
+  border-radius: 3px;
+  background: #231d18d9;
+  color: #fff6e2;
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+/* The bubble sits above the name, its tail pointing down at the speaker. */
+.mafia-bubble {
+  transform: translate(-50%, calc(-100% - 26px));
+  max-width: 220px;
+  width: max-content;
+  padding: 10px 13px;
+  border-radius: 9px;
+  background: #fff5df;
+  color: #31271f;
+  font-size: 14px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  filter: drop-shadow(0 2px 3px #00000033);
+  animation: mafia-show 9s forwards;
+}
+
+.mafia-bubble::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 9px solid transparent;
+  border-top-color: #fff5df;
+  border-bottom: 0;
+}
+
+.mafia-banner {
+  position: absolute;
+  top: 7%;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 85%;
+  padding: 12px 24px;
+  border-radius: 4px;
+  background: var(--plate);
+  color: var(--plate-text);
+  text-align: center;
+  font-size: clamp(16px, 2vw, 24px);
+  font-weight: 600;
+  animation: mafia-show 6.5s forwards;
+}
+
+.mafia-role {
+  font-size: 10px;
+  text-transform: capitalize;
+  opacity: 0.75;
+  text-align: center;
+}
+
+.mafia-out {
+  opacity: 0.55;
+}
+
+.mafia-eyes {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  color: #b3261e;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  line-height: 1;
+}
+
+/* Bubbles and banners fade in, stay, then fade out; the overlay removes each one when this ends. */
+@keyframes mafia-show {
+  0% { opacity: 0; }
+  4%, 92% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Dev-only state switch, shown with ?preview. */
+.mafia-preview {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  flex-wrap: wrap;
+  max-width: 220px;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 8px;
+  background: #e5e5e5;
+  font: 12px system-ui, sans-serif;
+}
+
+.mafia-preview button {
+  border: 0;
+  border-radius: 6px;
+  padding: 5px 10px;
+  background: transparent;
+  color: #333;
+  cursor: pointer;
+}
+
+.mafia-preview button[aria-pressed='true'] {
+  background: #fff;
+}
+
+/* Day number top left; sun or moon top right, both on the banner's dark plate so they read over any scenery. */
+.mafia-day {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  padding: 10px 22px;
+  border-radius: 6px;
+  background: var(--plate);
+  color: var(--plate-text);
+  font-size: clamp(20px, 2.4vw, 30px);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  box-shadow: var(--plate-shadow);
+}
+
+.mafia-sky {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: var(--plate);
+  box-shadow: var(--plate-shadow);
+}
+
+.mafia-sky::after {
+  content: '';
+  position: absolute;
+  inset: 16px;
+  border-radius: 50%;
+}
+
+.mafia-sun::after {
+  background: #ffd25a;
+  box-shadow: 0 0 0 5px #ffd25a55, 0 0 16px 6px #ffd25a88;
+}
+
+/* A crescent: the inner shadow of an empty disc, offset to one side. */
+.mafia-moon::after {
+  box-shadow: inset 12px -7px 0 0 #f1ecd8;
+  filter: drop-shadow(0 0 6px #f1ecd8aa);
+}
+
+.mafia-overlay [hidden] {
+  display: none;
+}
+
+/* The timer bar at the bottom of the scene: what is happening and a countdown. */
+.mafia-bar {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  max-width: calc(100% - 32px);
+  padding: 10px 20px;
+  border-radius: 6px;
+  background: var(--plate);
+  color: var(--plate-text);
+  box-shadow: var(--plate-shadow);
+  font-size: clamp(15px, 1.6vw, 20px);
+  font-weight: 600;
+}
+
+.mafia-bar-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mafia-bar-clock {
+  flex-shrink: 0;
+  padding-left: 16px;
+  border-left: 1px solid #fff4d833;
+  font-variant-numeric: tabular-nums;
+}

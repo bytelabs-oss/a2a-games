@@ -1,0 +1,328 @@
+/* Fredoka, under the SIL Open Font License (fonts/OFL.txt). */
+@font-face {
+  font-family: 'Fredoka';
+  src: url('fonts/Fredoka.ttf') format('truetype');
+  font-weight: 300 700;
+}
+
+.kitchen-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.kitchen-overlay {
+  --panel: #26222f;
+  --paper: #fffaf2;
+  --ink: #36313e;
+  --gold: #f7c843;
+  --good: #2bb39a;
+  --warn: #f2a33a;
+  --bad: #e4572e;
+  --shadow: 0 4px 14px #00000040;
+  --pill: clamp(40px, 7vh, 64px);
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  color: var(--paper);
+  font-family: 'Fredoka', ui-rounded, system-ui, sans-serif;
+  font-weight: 600;
+}
+
+.kitchen-overlay [hidden] {
+  display: none;
+}
+
+/* Order tickets in a row from the top left, oldest first: paper slips clipped to a rail, torn along the bottom, in
+   pictures only: time left, the dish, and its ingredients, each with a mark for how it is prepared. */
+.kitchen-tickets {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.kitchen-ticket {
+  --tear: 7px;
+  position: relative;
+  display: grid;
+  justify-items: center;
+  padding: 10px 0 calc(var(--tear) + 4px);
+  background: var(--paper);
+  filter: drop-shadow(0 3px 4px #00000045);
+  mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / calc(var(--tear) * 2) 100%;
+}
+
+/* The clip that holds the slip on the rail. */
+.kitchen-ticket::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 34px;
+  height: 6px;
+  border-radius: 0 0 4px 4px;
+  background: #9aa1ab;
+  transform: translateX(-50%);
+}
+
+/* Drains from full to empty over the order's time, turning red in the last quarter. */
+.kitchen-ticket-time {
+  justify-self: start;
+  height: 6px;
+  margin: 4px 0 0 8px;
+  border-radius: 3px;
+  background: var(--good);
+  animation: kitchen-drain linear forwards;
+}
+
+@keyframes kitchen-drain {
+  from { width: calc(100% - 16px); }
+  75% { background: var(--good); }
+  to { width: 0; background: var(--bad); }
+}
+
+.kitchen-ticket-dish {
+  width: 88px;
+  height: 88px;
+  margin: 0 10px -6px;
+}
+
+.kitchen-ticket-foods {
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px 8px 0;
+  border-top: 2px dashed #d8cfbf;
+}
+
+.kitchen-ticket-food {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+}
+
+.kitchen-ticket-ingredient {
+  width: 34px;
+  height: 34px;
+}
+
+.kitchen-ticket-mark {
+  width: 24px;
+  height: 24px;
+}
+
+/* The points beside a gold coin, and the service clock: dark pills along the bottom. The clock turns red and pulses
+   as service ends. */
+.kitchen-pill {
+  position: absolute;
+  bottom: calc(var(--pill) * 0.3);
+  padding: 0 0.6em;
+  border-radius: 99px;
+  background: var(--panel);
+  font-size: calc(var(--pill) * 0.62);
+  font-variant-numeric: tabular-nums;
+}
+
+.kitchen-score {
+  left: calc(var(--pill) * 0.3);
+  display: flex;
+  align-items: center;
+  gap: 0.25em;
+  padding-left: 0.15em;
+}
+
+.kitchen-coin {
+  width: 1.05em;
+  height: 1.05em;
+  border: 0.08em solid #c98f1b;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffe58a, var(--gold) 55%, #e0a92a);
+  box-shadow: inset 0 0 0 0.06em #ffe9a3;
+}
+
+.kitchen-clock {
+  right: calc(var(--pill) * 0.3);
+}
+
+.kitchen-ending {
+  background: #4a1712;
+  color: #ff5a4a;
+  animation: kitchen-pulse 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes kitchen-pulse {
+  to { scale: 1.12; }
+}
+
+/* A chef's name tag over their head in their colour, and their speech bubble above it, its tail pointing down. */
+.kitchen-label,
+.kitchen-bubble {
+  position: absolute;
+  transform: translate(-50%, -100%);
+}
+
+.kitchen-label {
+  max-width: 140px;
+  padding: 2px 8px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--chef);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.25;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.kitchen-bubble {
+  transform: translate(-50%, calc(-100% - 28px));
+  max-width: 220px;
+  width: max-content;
+  padding: 9px 13px;
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  filter: drop-shadow(0 2px 3px #00000033);
+  animation: kitchen-show 1s forwards;
+}
+
+.kitchen-bubble-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+
+.kitchen-bubble::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 9px solid transparent;
+  border-top-color: var(--paper);
+  border-bottom: 0;
+}
+
+/* A station's progress bar while someone works there or food cooks; it pulses red as cooked food heads for
+   burning, or as a rat heads for eating the food. */
+.kitchen-progress {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 48px;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--gold) calc(var(--progress) * 100%), #3a3547 0);
+}
+
+.kitchen-progress.kitchen-warning {
+  background: linear-gradient(90deg, var(--bad) calc(var(--progress) * 100%), #3a3547 0);
+  animation: kitchen-pulse 0.5s ease-in-out infinite alternate;
+}
+
+/* A word that pops up where something just happened, such as "fire!": gold with a dark outline, springing in,
+   rising and fading, as in the original kitchen. */
+.kitchen-toast {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  color: var(--gold);
+  font-size: 34px;
+  -webkit-text-stroke: 4px var(--panel);
+  paint-order: stroke fill;
+  white-space: nowrap;
+  animation: kitchen-toast 1s ease-out forwards;
+}
+
+@keyframes kitchen-toast {
+  0% { scale: 0.3; translate: 0 0; }
+  20% { scale: 1.3; }
+  35% { scale: 1; }
+  70% { opacity: 1; }
+  100% { opacity: 0; translate: 0 -60px; }
+}
+
+/* The banner for headline events, as Mafia's: centred across the top of the scene, fading in and out. */
+.kitchen-banner {
+  position: absolute;
+  top: 7%;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 85%;
+  padding: 12px 24px;
+  border-radius: 4px;
+  background: var(--panel);
+  text-align: center;
+  font-size: clamp(16px, 2vw, 24px);
+  animation: kitchen-show 6.5s forwards;
+}
+
+/* Bubbles and banners fade in, stay, then fade out; the overlay removes each one when this ends. */
+@keyframes kitchen-show {
+  0% { opacity: 0; }
+  4%, 92% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kitchen-ending,
+  .kitchen-progress.kitchen-warning {
+    animation: none;
+  }
+}
+
+/* Dev-only state switch, shown with ?preview. */
+.kitchen-preview {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  max-width: 260px;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 8px;
+  background: #e5e5e5;
+  font: 12px system-ui, sans-serif;
+}
+
+.kitchen-preview button {
+  border: 0;
+  border-radius: 6px;
+  padding: 5px 10px;
+  background: transparent;
+  color: #333;
+  cursor: pointer;
+}
+
+.kitchen-preview button[aria-pressed='true'] {
+  background: #fff;
+}
+
+.kitchen-preview-note {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  translate: -50%;
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: #e5e5e5;
+  color: #333;
+  font: 14px system-ui, sans-serif;
+}
+
+.kitchen-preview-note:empty {
+  display: none;
+}

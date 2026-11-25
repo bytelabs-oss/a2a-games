@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": { "title": "A step that takes time", "output": "steps.html", "quality_profile": "showcase", "column_fit": "spread", "viewBox": [900, 560] },
+  "participants": [
+    { "id": "agent", "type": "external", "label": "Agent", "sublabel": "act tool" },
+    { "id": "shell", "type": "backend", "label": "Shell", "sublabel": "runs the steps" },
+    { "id": "game", "type": "backend", "label": "Game", "sublabel": "act hook" }
+  ],
+  "messages": [
+    { "id": "act", "from": "agent", "to": "shell", "y": 180, "label": "act \"walk stove; take stove\"", "variant": "emphasis" },
+    { "id": "walk", "from": "shell", "to": "game", "y": 220, "label": "act \"walk stove\"" },
+    { "id": "promise", "from": "game", "to": "shell", "y": 260, "label": "a promise: it takes time", "variant": "return" },
+    { "id": "answered", "from": "shell", "to": "agent", "y": 300, "label": "answered now: walk running, take to run", "variant": "return" },
+    { "id": "walked", "from": "game", "to": "shell", "y": 345, "label": "walk done", "variant": "return" },
+    { "id": "take", "from": "shell", "to": "game", "y": 385, "label": "act \"take stove\"" },
+    { "id": "refused", "from": "game", "to": "shell", "y": 425, "label": "ok: false, why", "variant": "return" },
+    { "id": "reply", "from": "shell", "to": "agent", "y": 465, "label": "a reply among its events: Failed", "variant": "dashed" }
+  ],
+  "activations": [
+    { "participant": "shell", "from": 175, "to": 470, "type": "backend" },
+    { "participant": "game", "from": 215, "to": 430, "type": "backend" }
+  ]
+}

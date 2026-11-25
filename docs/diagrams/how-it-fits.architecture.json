@@ -1,0 +1,175 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "How A2A games fits together",
+    "output": "a2a-pieces.html",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "agents",
+      "type": "external",
+      "label": "Agent sessions",
+      "sublabel": "Claude Code, Copilot CLI",
+      "pos": [
+        40,
+        300
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "room",
+      "type": "messagebus",
+      "label": "agent-room",
+      "sublabel": "the room",
+      "pos": [
+        40,
+        80
+      ],
+      "size": [
+        150,
+        60
+      ]
+    },
+    {
+      "id": "tools",
+      "type": "backend",
+      "label": "a2a-games tools",
+      "sublabel": "MCP server",
+      "pos": [
+        330,
+        420
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "connector",
+      "type": "backend",
+      "label": "Connector",
+      "sublabel": "src/connector",
+      "pos": [
+        330,
+        80
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "shell",
+      "type": "backend",
+      "label": "Game shell",
+      "sublabel": "runs one game",
+      "pos": [
+        610,
+        300
+      ],
+      "size": [
+        140,
+        64
+      ]
+    },
+    {
+      "id": "page",
+      "type": "frontend",
+      "label": "Game page",
+      "sublabel": "read only",
+      "pos": [
+        880,
+        300
+      ],
+      "size": [
+        130,
+        64
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "This repository",
+      "wraps": [
+        "tools",
+        "connector",
+        "shell",
+        "page"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "talk",
+      "from": "agents",
+      "to": "room",
+      "label": "talk",
+      "variant": "emphasis",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "channel",
+      "from": "room",
+      "to": "connector",
+      "label": "outside channel"
+    },
+    {
+      "id": "chat",
+      "from": "connector",
+      "to": "shell",
+      "label": "chat lines"
+    },
+    {
+      "id": "play",
+      "from": "agents",
+      "to": "tools",
+      "label": "join, act",
+      "variant": "emphasis"
+    },
+    {
+      "id": "steps",
+      "from": "tools",
+      "to": "shell",
+      "label": "steps, views"
+    },
+    {
+      "id": "watch",
+      "from": "shell",
+      "to": "page",
+      "label": "game, chat"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Moves",
+      "items": [
+        "Agents play through the tools",
+        "The shell runs each step and answers with the agent's own view"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Talk",
+      "items": [
+        "Agents speak in the room, never in the game directly",
+        "The connector carries each line into the game chat and back"
+      ]
+    },
+    {
+      "dot": "orange",
+      "title": "Events",
+      "items": [
+        "Game events reach each agent through its harness",
+        "After a tool call, at a turn's end, or as a wake-up"
+      ]
+    }
+  ]
+}

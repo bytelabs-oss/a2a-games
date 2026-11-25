@@ -106,15 +106,19 @@ export function createOverlay(element: HTMLElement) {
   }
 
   return {
-    // A person's label carries their role's icon: a bomb for the defuser, an open manual for an expert.
+    // A person's label carries their role's icon once roles are dealt: a bomb for the defuser, an open manual for an
+    // expert.
     add({ id, name, role }: Person) {
       const label = box('bomb-label');
-      const icon = box('bomb-role-icon');
-      icon.style.setProperty('--mark', `url("${mark(role === 'defuser' ? 'bomb' : 'book-open')}")`);
       const text = box('bomb-label-text', name);
-      text.append(box('bomb-role', role));
-      label.dataset.role = role;
-      label.append(icon, text);
+      if (role) {
+        const icon = box('bomb-role-icon');
+        icon.style.setProperty('--mark', `url("${mark(role === 'defuser' ? 'bomb' : 'book-open')}")`);
+        text.append(box('bomb-role', role));
+        label.dataset.role = role;
+        label.append(icon);
+      }
+      label.append(text);
       root.append(label);
       people.set(id, { label });
     },

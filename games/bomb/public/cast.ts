@@ -1,15 +1,15 @@
 // The people in the scene: the defuser standing over the bomb, and the experts seated around the round table, each
-// with a manual in front of them. Rebuilt whenever the players or the phase in the page's view change.
+// with a manual in front of them. Before the roles are dealt, everyone sits at the table. Rebuilt whenever the players or the phase in the page's view change.
 import * as THREE from 'three';
 import { place, part, type Assets } from './assets.ts';
 import { bunker, people } from './layout.ts';
-import type { PageView } from './types.ts';
+import type { PageView, Role } from './types.ts';
 
 // Someone in the bunker, and the head bone their name and bubble follow.
 export interface Person {
   id: string;
   name: string;
-  role: 'defuser' | 'expert';
+  role: Role | null;
   head: THREE.Object3D;
 }
 
@@ -105,39 +105,42 @@ export function createCast(scene: THREE.Scene, assets: Assets) {
   }
 
   return {
-    // Places the defuser and up to four experts. Returns the people, or null when nothing changed.
+    // Places the defuser at the bomb and everyone else around the table: the experts once the roles are dealt, and
+    // every player before. Returns the people, or null when nothing changed.
     draw(view: Partial<PageView> = {}): Person[] | null {
       const phase = view.phase ?? 'lobby';
-      const experts = (view.experts ?? []).slice(0, people.experts.length);
-      const key = JSON.stringify([phase, view.defuser, experts.map(({ id, name }) => [id, name])]);
+      const players = view.players ?? [];
+      const key = JSON.stringify([phase, players.map(({ id, name, role }) => [id, name, role])]);
       if (key === drawnKey) return null;
       drawnKey = key;
       clear();
       const drawn: Person[] = [];
-      if (view.defuser) {
+      const defuser = players.find(player => player.role === 'defuser');
+      if (defuser) {
         const head = body(0, people.defuser, actors, bunker.bomb.defuser, people.clips.defuser[phase]);
-        drawn.push({ ...view.defuser, role: 'defuser', head });
+        drawn.push({ id: defuser.id, name: defuser.name, role: 'defuser', head });
       }
+      const seated = players.filter(player => player.role !== 'defuser').slice(0, people.experts.length);
       const { table, radius, book, top } = bunker.manuals;
-      experts.forEach(({ id, name }, index) => {
+      seated.forEach(({ id, name, role }, index) => {
         // Seats spread evenly around the table from the camera side. With an even count one would sit straight in
         // front of the table, hiding it, so the ring turns half a step.
-        const step = Math.PI * 2 / experts.length;
-        const angle = index * step + (experts.length % 2 ? 0 : step / 2);
+        const step = Math.PI * 2 / seated.length;
+        const angle = index * step + (seated.length % 2 ? 0 : step / 2);
         const direction = new THREE.Vector3(Math.sin(angle), 0, Math.cos(angle));
         const group = new THREE.Group();
         group.position.copy(direction.clone().multiplyScalar(radius).add(table));
         group.rotation.y = angle + Math.PI;
         actors.add(group);
         const clip = people.clips.expert[phase];
-        const seated = clip.startsWith('Sit_');
-        if (seated) place(assets, 'chair', group, new THREE.Vector3(), 0, people.scale);
-        const at = seated ? people.seatAnchor.clone().multiplyScalar(people.scale) : new THREE.Vector3();
+        const sitting = clip.startsWith('Sit_');
+        if (sitting) place(assets, 'chair', group, new THREE.Vector3(), 0, people.scale);
+        const at = sitting ? people.seatAnchor.clone().multiplyScalar(people.scale) : new THREE.Vector3();
         const head = body(index + 1, people.experts[index], group, at, clip);
         // The book model stands upright in the pack; tipping it onto its back lays it on the table.
         const manual = direction.clone().multiplyScalar(book.radius).add(table).setY(top);
         place(assets, 'book', actors, manual, angle + Math.PI, book.scale).rotateX(-Math.PI / 2);
-        drawn.push({ id, name, role: 'expert', head });
+        drawn.push({ id, name, role, head });
       });
       return drawn;
     },

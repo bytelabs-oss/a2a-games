@@ -60,7 +60,7 @@ export const bunker = {
   ],
   // The bomb is a case on a work table: the pack's case is 0.8 by 0.4 by 0.6, and at this scale twice that; the defuser stands behind it, facing the camera.
   bomb: { table: new THREE.Vector3(-3.6, 0, 0.6), top: 0.8, caseScale: 2, caseSize: new THREE.Vector3(1.6, 0.8, 1.2), defuser: new THREE.Vector3(-3.6, 0, -0.75) },
-  // The experts sit around a round table, as in Mafia, each with a manual in front of them. The table top is one
+  // The experts sit around a round table, as in Mafia, and so does everyone in the lobby before the roles are dealt, each with a manual in front of them. The table top is one
   // unit high and 1.5 across in the pack; at this scale, 1.5 high and 2.25 across.
   manuals: {
     table: new THREE.Vector3(3.6, 0, -1.4),
@@ -141,6 +141,7 @@ export const people = {
     { character: 'hooded', wear: [], outfit: [[[0, 1], ['mage', 0, 2]], [[1, 1], ['mage', 0, 2]]] },
     { character: 'mage', wear: [], outfit: [[[0, 1], ['mage', 0, 2]]] },
     { character: 'hooded', wear: [], outfit: [[[0, 1], ['mage', 0, 2]], [[1, 1], ['mage', 0, 2]]] },
+    { character: 'mage', wear: [], outfit: [[[0, 1], ['mage', 0, 2]]] },
   ],
 } as const;
 

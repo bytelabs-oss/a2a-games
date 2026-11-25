@@ -274,7 +274,7 @@ function deliver(state: State, chef: Chef, id: string) {
 
 // Every step: its form, what it does, and how it runs. The actions agents read and the parser both come from here.
 export const steps: Record<string, { form: string; description: string; run: (state: State, chef: Chef, target: string) => Outcome | Promise<Outcome> }> = {
-  walk: { form: 'walk <station>', description: 'Go to a station to use it: you walk to the floor in front of it. Other steps act only on the station you are at.', run: walk },
+  walk: { form: 'walk <station>', description: 'Walk to the floor in front of a station. Other steps act only on the station you are at.', run: walk },
   move: { form: 'move <spot>', description: 'Give up the station you are at when you are done there: you go to a spot on the floor, away from the stations, and another chef can use the station. To get to a station, use walk.', run: move },
   take: { form: 'take <station>', description: 'Take food from a crate, a plate from the plates, or what is on a station. If you hold a plate, ready food goes onto it.', run: take },
   put: { form: 'put <station>', description: 'Put down what you hold: anything on a counter, food to cut on a board, food to cook on a stove. Ready food put where a plate is goes onto the plate. The bin throws food away and empties a plate.', run: put },

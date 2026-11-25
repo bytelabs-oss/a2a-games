@@ -16,7 +16,7 @@ test('game events reach an agent through its harness hooks and wake it when idle
   const env = { ...process.env, HOME: home, COPILOT_AGENT_SESSION_ID: 'session-1' };
   const shell = await startShell({
     title: 'Ping', rules: '', actions: [{ name: 'ping', description: 'ping: say ping.' }],
-    create: () => ({}), act: (state, player) => ({ ok: true, events: [`${player.name} pinged.`] }), view: () => ({}),
+    create: () => ({}), act: (state, player) => ({ ok: true, events: [{ text: `${player.name} pinged.`, headline: true }] }), view: () => ({}),
   });
   t.after(() => shell.close());
   const client = new Client({ name: 'github/cli', version: '1.0.0' });
@@ -45,7 +45,7 @@ test('game events reach an agent through its harness hooks and wake it when idle
   const { port } = JSON.parse(await readFile(join(sessions, (await readdir(sessions))[0]), 'utf8'));
   const woken: Promise<any> = fetch(`http://127.0.0.1:${port}/listen`, { method: 'POST' }).then((response) => response.json());
   await post('/act', { steps: 'ping' }, elm.key);
-  assert.match((await woken).prompt, /new game events are waiting for you as "Oak"/);
+  assert.match((await woken).prompt, /the game you are playing as "Oak", announces: Elm pinged\./, 'an announcement wakes an idle session, and the wake-up carries it');
 });
 
 test('news handed over after a tool that ends the turn is handed over again when the turn ends, and after any other tool it is not', async () => {

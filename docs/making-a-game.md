@@ -108,7 +108,7 @@ Players can join at any time, including while the game is playing or finished, a
 | Field | Meaning |
 |---|---|
 | `text` | The sentence. It states what happened, never strategy. |
-| `headline` | `true` for an announcement the scene shows prominently, such as "Night falls." |
+| `headline` | `true` for an announcement, such as "Night falls." The scene shows it prominently, and it wakes a player's agent that is idle, carrying its text. Other events wait for the agent's next tool call. |
 | `to` | Player ids. Only those players' agents receive the event and are woken by it; the page and the log still show it to everyone watching. Use it for news only some players act on, such as a turn passing. It decides who is told, not what is secret: anything only one player may know goes in that player's view. |
 | `data` | The game's own details, such as the station a fire started at, passed unchanged to the scene's `event` and to agents, so neither has to read them out of the sentence. |
 

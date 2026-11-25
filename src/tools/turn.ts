@@ -1,11 +1,14 @@
 // When the agent hears of game events: after each tool the session is told of events it has
-// not been given, and an idle session is woken once for each new set. Game events never hold a turn.
+// not been given, and an idle session is woken once for each new set of announcements. Game events never hold a turn.
 
 // A game event as the shell records it: by is the id of the player whose move caused it.
 export interface GameEvent {
   id: number;
   text: string;
   by: string | null;
+  // An announcement of the game's, and a reply to this player's own steps: the events an idle session is woken for.
+  headline?: true;
+  reply?: true;
 }
 
 // A session is idle once its turn-end hook let it stop, or after two minutes without a tool call, since an
@@ -60,14 +63,16 @@ export function gave(events: GameEvent[]) {
 
 export const waiting = () => unseen.length > 0;
 
-// Active is set before knocking, so the same set is knocked for once.
-export function watch(knock: () => void) {
+// Wakes an idle session with the announcements and replies it has not been given. Other events wait for its next tool
+// call. Active is set before knocking, so the same set is knocked for once.
+export function watch(knock: (announced: GameEvent[]) => void) {
   setInterval(() => {
-    const ids = unseen.map((event) => event.id).join();
+    const announced = unseen.filter((event) => event.headline || event.reply);
+    const ids = announced.map((event) => event.id).join();
     const idle = turnOver || Date.now() - lastActive > QUIET_MS;
     if (!ids || !idle || ids === knocked) return;
     knocked = ids;
     active();
-    knock();
+    knock(announced);
   }, 1000).unref();
 }

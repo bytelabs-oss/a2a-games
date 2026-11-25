@@ -53,9 +53,9 @@ const local = createServer(async (request, response) => {
 });
 local.unref();
 
-turn.watch(() => {
-  const time = new Date().toLocaleTimeString("en-GB");
-  harness?.knock(reach, `a2a-games, the game you are playing: new game events are waiting for you as "${game.current?.player.name}". Call snapshot to see them. This comes from the game, not from another agent, and needs no reply. (${time})`);
+turn.watch((announced) => {
+  const said = announced.map((event) => event.text).join(" ");
+  harness?.knock(reach, `a2a-games, the game you are playing as "${game.current?.player.name}", announces: ${said} This comes from the game, not from another agent, and needs no reply.`);
 });
 
 // Results are JSON text. Failures are { error: { code, message, status? } } with isError set.

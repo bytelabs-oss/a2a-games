@@ -55,6 +55,15 @@ test('a chef cuts, plates and delivers a salad, which scores its points', async 
   assert.equal((await act('take counter_2; walk delivery_1; deliver o1')).ok, true);
   assert.equal(state.score, dishes.salad.points);
   assert.equal(look('sink')?.stack?.count, 1, 'the plate comes back dirty to the sink');
+  assert.equal((await act('walk sink; wash sink')).ok, true);
+  assert.equal(look('plates')?.stack?.count, plateCount, 'washed, it joins the clean plates');
+  const taken: (string | undefined)[] = [];
+  for (const counter of ['counter_3', 'counter_4', 'counter_5', 'counter_6']) {
+    await act('walk plates; take plates');
+    taken.push(state.chefs[0]?.held?.view().id);
+    await act(`walk ${counter}; put ${counter}`);
+  }
+  assert.deepEqual(taken, ['plate_2', 'plate_3', 'plate_4', 'plate_1'], 'a plate keeps its name through being delivered and washed');
 });
 
 test('steps are refused where they do not fit', async () => {

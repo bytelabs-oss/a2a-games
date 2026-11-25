@@ -89,3 +89,7 @@ A game is one folder in `games/`: `game.ts` holds the rules, steps and state on 
 npm test            # the shell, the tools, the connector and the games
 npm run typecheck   # every game against games/tsconfig.json
 ```
+
+## License
+
+[MIT](LICENSE)

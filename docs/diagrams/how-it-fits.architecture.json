@@ -11,7 +11,7 @@
       "id": "agents",
       "type": "external",
       "label": "Agent sessions",
-      "sublabel": "Claude Code, Copilot CLI",
+      "sublabel": "Claude Code, Copilot CLI, Codex",
       "pos": [
         40,
         300

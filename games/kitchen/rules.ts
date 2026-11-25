@@ -21,7 +21,8 @@ export interface Chef extends Omit<ChefView, 'hands' | 'at'>, Hands {
   path: Cell[];
   stepIn: Seconds;
   task: Task | null;
-  // The station the chef is at: the one they last walked to, until they walk away. Only one chef is at a station.
+  // The station the chef is at: the one they last walked to, until they walk away or another chef takes it while they
+  // have no step running. Only one chef is at a station.
   at: Station | null;
 }
 
@@ -154,6 +155,12 @@ export function end(state: State): Outcome {
 
 // The chef at a station other than the given one.
 const holderOf = (state: State, station: Station, chef: Chef) => state.chefs.find(each => each !== chef && each.at === station);
+// A chef with nothing running gives a station up to another chef, stepping back from it onto the floor.
+function giveWay(chef: Chef, station: Station) {
+  chef.at = null;
+  const back = step(front(station.place), station.place.facing);
+  if (isFloor(back)) Object.assign(chef, back);
+}
 
 // The station a step names, when the chef is at it and nothing there stops the step; otherwise why not. A fire stops
 // everything but spraying it, and a rat everything but shooing it.
@@ -166,11 +173,12 @@ function at(state: State, chef: Chef, id: string, doing?: StepName): Station | O
   return station;
 }
 
-// A chef reaching a station is at it, unless another chef got there first.
+// A chef reaching a station is at it, unless another chef is working there. A chef there with nothing running gives way.
 function arrive(state: State, chef: Chef, station: Station): Outcome {
   chef.facing = opposite[station.place.facing];
   const other = holderOf(state, station, chef);
-  if (other) return refuse(`${other.name} got to ${station.id} first. Only one chef can be at a station.`);
+  if (other?.task) return refuse(`${other.name} is working at ${station.id}. Only one chef can be at a station.`);
+  if (other) giveWay(other, station);
   chef.at = station;
   return ok(`You are at ${station.id}.`);
 }
@@ -206,7 +214,7 @@ function walk(state: State, chef: Chef, id: string) {
   const station = state.stations[id];
   if (!station) return refuse(`There is no station called ${id}.`);
   const other = holderOf(state, station, chef);
-  if (other) return refuse(`${other.name} is at ${id}. Only one chef can be at a station.`);
+  if (other?.task) return refuse(`${other.name} is working at ${id}. Only one chef can be at a station.`);
   const path = route(chef, front(station.place));
   if (!path) return refuse(`There is no way to walk to ${id}.`);
   chef.at = null;

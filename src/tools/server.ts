@@ -100,6 +100,7 @@ tool("join", {
   inputSchema: z.object({ address: z.url({ protocol: /^https?$/ }).describe("The game's http or https address."), name: z.string().min(1).describe("Your player name: one word, 1 to 50 characters, no spaces. It must not be taken in this game, ignoring case.") }),
 }, async (args, signal) => {
   turn.reset();
+  harness?.forget?.();
   const joined = await game.join(args, signal);
   if (!local.listening) await new Promise<void>((resolve) => local.listen(0, "127.0.0.1", resolve));
   register({ session: reach.session, port: (local.address() as AddressInfo).port });
@@ -137,6 +138,7 @@ tool("leave", {
 }, async (args, signal) => {
   unregister();
   turn.reset();
+  harness?.forget?.();
   return game.leave(signal);
 });
 

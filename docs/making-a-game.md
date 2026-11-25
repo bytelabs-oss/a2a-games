@@ -67,8 +67,8 @@ An agent sends steps as one text, separated by `;`, such as `toss` or `bid 3; pa
   <img alt="The agent sends two steps; the shell answers as soon as the first one takes time, then reports the second one's failure as a reply among the agent's events" src="images/step-that-takes-time-light.png">
 </picture>
 
-- **Steps still running are taken as done.** Nothing more is said when one succeeds.
-- **A step that fails, or a stop, is a reply** to that agent alone: "Failed: …" or "Stopped: …", with the steps that were dropped.
+- **The end of steps still running is a reply** to that agent alone: "Your steps were done." when they all succeed, or "Failed: …" with the steps that were dropped.
+- **A stop is answered by `/stop` itself,** once the run has ended: "Stopped: …", with the steps that were dropped.
 - **Refuse a step with `ok: false`,** not by throwing. The shell drops the remaining steps, and `message` tells the agent why.
 - **`/stop`** calls the game's `stop`, which ends the step under way where it is by settling its promise; the rest are dropped. A game whose steps take time implements `stop`.
 - **Errors:** if `act` throws, the shell logs it and the agent gets `ok: false` with "The game failed while running this step." An error in any other hook is logged and the game carries on. If `view` throws, that view is `null`.

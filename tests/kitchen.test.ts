@@ -22,12 +22,13 @@ function kitchen() {
       game.tick(state, game.tickSeconds);
     }
   };
-  // Runs steps one after another, as the shell does, ticking until each settles. Returns the first failure, or the last.
-  const act = async (steps: string) => {
+  // Runs a chef's steps one after another, as the shell does, ticking until each settles. Returns the first failure, or
+  // the last.
+  const act = async (steps: string, who = oak) => {
     let last: Outcome = { ok: true };
     for (const step of steps.split(';')) {
       let settled = false;
-      const result = Promise.resolve(game.act(state, oak, step.trim())).then(outcome => { settled = true; return outcome ?? { ok: true }; });
+      const result = Promise.resolve(game.act(state, who, step.trim())).then(outcome => { settled = true; return outcome ?? { ok: true }; });
       for (let guard = 0; !settled && guard < 1000; guard++) {
         pass(game.tickSeconds);
         await Promise.resolve();
@@ -39,7 +40,7 @@ function kitchen() {
   };
   // What a station shows: its view, as the page and the chefs see it.
   const look = (id: string) => state.stations[id]?.view(false);
-  return { state, act, pass, look, chef: () => state.chefs[0] };
+  return { state, act, pass, look, oak, chef: () => state.chefs[0] };
 }
 
 test('a chef cuts, plates and delivers a salad, which scores its points', async () => {
@@ -63,16 +64,21 @@ test('steps are refused where they do not fit', async () => {
   assert.match((await act('walk board_1; put board_1')).message ?? '', /does not take/, 'plates go on counters and delivery only');
 });
 
-test('only one chef can be at a station, until they walk away', async () => {
-  const { state, act } = kitchen();
+test('a chef working at a station keeps it, and a chef with nothing running gives it up', async () => {
+  const { state, act, oak } = kitchen();
   const ash = { id: 'ash', name: 'Ash' };
   game.join(state, ash);
-  const ashAct = (step: string) => game.act(state, ash, step);
-  assert.equal((await act('walk board_1')).ok, true);
-  assert.match((await ashAct('walk board_1') as { message: string }).message, /Oak is at board_1/);
-  await act('walk board_2');
-  assert.equal(state.chefs.find(chef => chef.id === 'oak')?.at?.id, 'board_2');
-  assert.equal(state.chefs.find(chef => chef.id === 'ash')?.at, null, 'a refused walk leaves the chef where they were');
+  const chef = (id: string) => state.chefs.find(each => each.id === id);
+  assert.equal((await act('walk lettuce_crate; take lettuce_crate; walk board_1; put board_1')).ok, true);
+  void game.act(state, oak, 'cut board_1');
+  assert.match((game.act(state, ash, 'walk board_1') as Outcome).message ?? '', /Oak is working at board_1/);
+  assert.equal(chef('ash')?.at, null, 'a refused walk leaves the chef where they were');
+  game.stop(state, oak);
+  const where = { x: chef('oak')?.x, y: chef('oak')?.y };
+  assert.equal((await act('walk board_1', ash)).ok, true, 'Oak has nothing running, so Ash may walk up');
+  assert.equal(chef('ash')?.at?.id, 'board_1');
+  assert.equal(chef('oak')?.at, null, 'Oak gives the board up');
+  assert.notDeepEqual({ x: chef('oak')?.x, y: chef('oak')?.y }, where, 'and steps back from it');
 });
 
 test('steak cooks by itself on a stove, then burns, then becomes a fire', async () => {

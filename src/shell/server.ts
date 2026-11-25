@@ -266,8 +266,8 @@ export async function startShell(game: (Game & { root?: string }) | null = null)
   };
   // Runs a player's steps in order, stopping at the first that fails, when the game ends, or when they stop. The
   // answer comes back once they are all done, or as soon as a step takes time, with the steps finished so far and those
-  // still to run. The steps still to run are taken as done: nothing is said when one succeeds. A step that fails is a
-  // reply to this player alone, naming the steps dropped; a stop is answered by stop itself, once the run has ended.
+  // still to run. When steps were still running at the answer, the run's end is a reply to this player alone: that
+  // the steps were done, or which one failed, naming the steps dropped. A stop is answered by stop itself.
   const runSteps = (game: Game, player: Player, steps: string) => new Promise<object>(answer => {
     const results: { step: string; ok: boolean; message: string }[] = [];
     const queue = steps.split(';').map(part => part.trim()).filter(Boolean);
@@ -321,6 +321,7 @@ export async function startShell(game: (Game & { root?: string }) | null = null)
       }
       run.left = [];
       if (player.run === run) player.run = undefined;
+      if (!run.stopping && results.length === queue.length && results.every(result => result.ok)) report(what);
       end(what);
       reply();
     })();

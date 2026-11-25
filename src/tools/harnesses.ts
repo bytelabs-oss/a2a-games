@@ -26,6 +26,8 @@ export interface Harness {
   endsTurn: string[];
   reach(): Reach;
   knock(reach: Reach, text: string): void;
+  // Drops a wake-up still waiting to reach the session, so none from an earlier game arrives after a join or leave.
+  forget?(): void;
   // Routes the harness's own parts call on the session's server.
   routes?: Record<string, (response: ServerResponse) => object | undefined>;
   register(): void;
@@ -115,6 +117,9 @@ export const HARNESSES = {
     // Hands the text to the extension waiting inside the session, which sends it as a prompt.
     knock(reach, text) {
       if (!answer({ prompt: text })) pending = text;
+    },
+    forget() {
+      pending = null;
     },
     routes: {
       "/listen"(response: ServerResponse) {

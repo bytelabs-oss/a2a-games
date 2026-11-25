@@ -99,9 +99,13 @@ test('options set on the page reach start; act answers when a step takes time, a
   assert.deepEqual(next.running, ['slow', 'jam', 'fast'], 'an act straight after stop runs');
   await new Promise(resolve => setTimeout(resolve, 600));
   const texts = (await request(shell, '/snapshot', undefined, key)).events.map((event: { text: string }) => event.text);
-  assert.deepEqual(texts, ['Failed: jam. Jammed. Dropped: fast.'], 'only a failure is a reply; steps that succeed send nothing');
+  assert.deepEqual(texts, ['Failed: jam. Jammed. Dropped: fast.'], 'a failure after the answer is a reply, naming the steps dropped');
   const logged = (await request(shell, '/log?since=0')).events.map((event: { text: string }) => event.text);
   assert.ok(!logged.includes(texts[0]), 'a reply reaches only its player, not the log');
+  await request(shell, '/act', { steps: 'slow; fast' }, key);
+  await new Promise(resolve => setTimeout(resolve, 600));
+  const finished = (await request(shell, '/snapshot', undefined, key)).events.map((event: { text: string }) => event.text);
+  assert.deepEqual(finished, ['Your steps were done.'], 'steps still running at the answer reply when they all succeed');
 });
 
 test('a game starts and ends', async (t) => {

@@ -46,6 +46,7 @@ test('game events reach an agent through its harness hooks and wake it when idle
   const woken: Promise<any> = fetch(`http://127.0.0.1:${port}/listen`, { method: 'POST' }).then((response) => response.json());
   await post('/act', { steps: 'ping' }, elm.key);
   assert.match((await woken).prompt, /the game you are playing as "Oak", announces: Elm pinged\./, 'an announcement wakes an idle session, and the wake-up carries it');
+  assert.equal(await hook('tool'), '', 'a hook does not tell the session again of what a wake-up carried');
 });
 
 test('news handed over after a tool that ends the turn is handed over again when the turn ends, and after any other tool it is not', async () => {

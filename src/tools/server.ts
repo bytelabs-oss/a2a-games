@@ -25,7 +25,9 @@ async function catchUp(endsTurn: boolean) {
   if (!turn.waiting() || !game.current) return null;
   const { events = [] } = await game.call("snapshot", undefined, AbortSignal.timeout(1500));
   turn.handed(events, endsTurn);
-  return events.length ? ["New game events:", ...events.map((event) => `- ${event.text}`), "Call snapshot to see the game."].join("\n") : null;
+  harness?.forget?.();
+  const fresh = turn.untold(events);
+  return fresh.length ? ["New game events:", ...fresh.map((event) => `- ${event.text}`), "Call snapshot to see the game."].join("\n") : null;
 }
 
 // What the session's hooks and its Copilot extension ask, on a loopback port filed in the registry while in a game.
@@ -86,7 +88,11 @@ function tool<Input extends z.ZodObject>(name: string, { inputSchema, annotation
     try {
       // The SDK has parsed args with inputSchema, which is Input or, with none given, the empty object.
       const data = await handler(args as z.infer<Input>, extra.signal);
-      if (Array.isArray(data.events)) turn.gave(data.events);
+      // The answer carries every event so far, so a wake-up still waiting to reach the session would be old news.
+      if (Array.isArray(data.events)) {
+        turn.gave(data.events);
+        harness?.forget?.();
+      }
       return result(data);
     } catch (error) {
       return toolFail(error);

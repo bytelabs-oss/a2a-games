@@ -26,7 +26,8 @@ export interface Harness {
   endsTurn: string[];
   reach(): Reach;
   knock(reach: Reach, text: string): void;
-  // Drops a wake-up still waiting to reach the session, so none from an earlier game arrives after a join or leave.
+  // Drops a wake-up still waiting to reach the session: after a join or leave, and once the session has been given
+  // the events it carried.
   forget?(): void;
   // Routes the harness's own parts call on the session's server.
   routes?: Record<string, (response: ServerResponse) => object | undefined>;

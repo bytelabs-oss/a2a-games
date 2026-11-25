@@ -19,6 +19,8 @@ let turnOver = false;
 let given = 0;
 let unseen: GameEvent[] = [];
 let knocked = "";
+// The ids of events a wake-up has carried, so a hook does not tell the session of them again.
+const announced = new Set<number>();
 // Events handed over after the session's latest tool call. If that call ended the turn, as Copilot's task_complete
 // does, the agent never read them, so the turn's end hands them over again by waking the session.
 let lastHanded: GameEvent[] = [];
@@ -48,7 +50,11 @@ export function reset() {
   unseen = [];
   knocked = "";
   lastHanded = [];
+  announced.clear();
 }
+
+// The events among these that no wake-up has carried to the session.
+export const untold = (events: GameEvent[]) => events.filter((event) => !announced.has(event.id));
 
 // An event from the game's stream. The player's own events reach it in its act result.
 export function heard(event: GameEvent, me: string) {
@@ -67,12 +73,13 @@ export const waiting = () => unseen.length > 0;
 // call. Active is set before knocking, so the same set is knocked for once.
 export function watch(knock: (announced: GameEvent[]) => void) {
   setInterval(() => {
-    const announced = unseen.filter((event) => event.headline || event.reply);
-    const ids = announced.map((event) => event.id).join();
+    const news = unseen.filter((event) => event.headline || event.reply);
+    const ids = news.map((event) => event.id).join();
     const idle = turnOver || Date.now() - lastActive > QUIET_MS;
     if (!ids || !idle || ids === knocked) return;
     knocked = ids;
     active();
-    knock(announced);
+    for (const event of news) announced.add(event.id);
+    knock(news);
   }, 1000).unref();
 }

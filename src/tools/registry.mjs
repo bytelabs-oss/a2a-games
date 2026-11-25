@@ -36,7 +36,7 @@ export function parents() {
 
 // The program this server's session runs in. A version manager's node can be a wrapper process running the same
 // script with the same arguments, so ancestors whose command ends that way are skipped.
-function cliPid() {
+export function cliPid() {
   const script = ` ${process.argv.slice(1).join(" ")}`;
   const all = processes();
   let pid = process.ppid;

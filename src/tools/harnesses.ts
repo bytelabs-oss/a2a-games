@@ -2,12 +2,13 @@
 // harness is recognised, what its after-tool hook prints, how an idle session of it is woken, and how the tools are
 // registered with it. Supporting another harness means adding an entry.
 
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import type { ServerResponse } from "node:http";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
+import { cliPid } from "./registry.mjs";
 
 // How to reach a session to wake it: its id, and for Claude Code its message socket and token.
 export interface Reach {
@@ -32,6 +33,7 @@ export interface Harness {
 }
 
 const home = (...parts: string[]) => path.join(os.homedir(), ...parts);
+const codexHome = (name: string) => path.join(process.env.CODEX_HOME ?? home(".codex"), name);
 const file = (name: string) => path.join(import.meta.dirname, name);
 const hook = (...args: string[]) => `node ${JSON.stringify(file("hook.ts"))} ${args.join(" ")}`;
 
@@ -138,6 +140,42 @@ export const HARNESSES = {
       spawnSync("copilot", ["mcp", "remove", "a2a-games"], { stdio: "ignore" });
       fs.rmSync(home(".copilot", "hooks", "a2a-games.json"), { force: true });
       fs.rmSync(home(".copilot", "extensions", "a2a-games"), { recursive: true, force: true });
+    },
+  },
+  codex: {
+    clients: ["codex-mcp-client"],
+    afterTool: (text) => ({ hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: text } }),
+    endsTurn: [] as string[],
+    // Codex tells its MCP servers nothing about the session, but keeps the session's rollout file open, and the
+    // session id is in that file's name.
+    reach() {
+      try {
+        const open = execFileSync("lsof", ["-p", String(cliPid()), "-Fn"], { encoding: "utf8" });
+        return { session: open.match(/rollout-[^\n]*-([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\.jsonl/)?.[1] };
+      } catch {
+        return {};
+      }
+    },
+    // `codex queue` hands the session a message, which starts a turn when it is idle.
+    knock(reach, text) {
+      if (!reach.session) return;
+      spawn("codex", ["queue", "--thread", reach.session, "--message", text], { stdio: "ignore" }).on("error", (error) =>
+        console.error(`a2a-games: could not wake the Codex session: ${error.message}`),
+      );
+    },
+    register() {
+      spawnSync("codex", ["mcp", "remove", "a2a-games"], { stdio: "ignore" });
+      run("codex", "mcp", "add", "a2a-games", "--", "node", file("server.ts"));
+      editJson(codexHome("hooks.json"), (config) => {
+        const hooks = withoutOurHooks((config.hooks ??= {}));
+        for (const [event, args] of [["Stop", ["codex"]], ["PostToolUse", ["codex", "tool"]]] as const) {
+          (hooks[event] ??= []).push({ hooks: [{ type: "command", command: hook(...args) }] });
+        }
+      });
+    },
+    unregister() {
+      spawnSync("codex", ["mcp", "remove", "a2a-games"], { stdio: "ignore" });
+      if (fs.existsSync(codexHome("hooks.json"))) editJson(codexHome("hooks.json"), (config) => config.hooks && withoutOurHooks(config.hooks));
     },
   },
 } satisfies Record<string, Harness>;

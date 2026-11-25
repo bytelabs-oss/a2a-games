@@ -62,7 +62,7 @@ export abstract class Station {
       .filter(Boolean).join('; ');
   }
 
-  put(hands: Hands): Done {
+  put(hands: Hands, _ontoPlate = false): Done {
     return refuse(hands.held ? `Nothing is put down on ${this.id}.` : 'Your hands are empty.');
   }
 
@@ -156,28 +156,26 @@ export abstract class Station {
 // How many things a counter, board or stove holds.
 export const surfaceCapacity = 1;
 
-// A surface holds up to `capacity` things it accepts. Food put down onto a plate here goes onto the plate, and food
-// taken while holding a plate goes onto that plate.
+// A surface holds up to `capacity` things it accepts. Food goes onto a plate here only when the put names the plate, and
+// food taken while holding a plate goes onto that plate.
 export abstract class Surface extends Station {
   readonly capacity: number = surfaceCapacity;
   items: Item[] = [];
 
-  put(hands: Hands): Done {
+  put(hands: Hands, ontoPlate = false): Done {
     const held = hands.held;
     if (!held) return refuse('Your hands are empty.');
     const plate = this.items.find((item): item is Plate => item instanceof Plate);
-    if (plate?.takes(held)) {
+    if (ontoPlate) {
+      if (!plate) return refuse(`There is no plate on ${this.id}.`);
+      if (!plate.takes(held)) return refuse(`The plate on ${this.id} ${plate.refuses(held)}.`);
       plate.foods.push(held);
       hands.held = null;
       return ok(`Added the ${name(held)} to the plate on ${this.id}.`);
     }
+    if (plate) return refuse(`A plate is on ${this.id}. To add what you hold to that plate: put ${this.id} plate.`);
     if (!this.accepts(held)) return refuse(`${this.id} does not take ${describe(held)}.`);
-    if (this.items.length >= this.capacity) {
-      // Food that could have gone onto the plate here says why the plate did not take it.
-      const refused = (held instanceof Food || held instanceof Plate) && plate?.refuses(held);
-      if (refused) return refuse(`The plate on ${this.id} ${refused}.`);
-      return refuse(`${this.id} already holds ${this.items.map(describe).join(' and ')}.`);
-    }
+    if (this.items.length >= this.capacity) return refuse(`${this.id} already holds ${this.items.map(describe).join(' and ')}.`);
     this.items.push(held);
     hands.held = null;
     this.changedItems();

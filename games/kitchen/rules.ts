@@ -235,12 +235,13 @@ const take = (state: State, chef: Chef, id: string) => {
 };
 
 // A refused put says which kinds of station take what the chef holds, as each station decides for itself.
-const put = (state: State, chef: Chef, id: string) => {
+const put = (state: State, chef: Chef, id: string, onto = '') => {
+  if (onto && onto !== 'plate') return refuse(`Say put ${id}, or put ${id} plate to add what you hold to the plate there.`);
   const station = at(state, chef, id);
   if (!(station instanceof Station)) return station;
   const held = chef.held;
-  const done = station.put(chef);
-  if (done.ok || !held || station.accepts(held)) return answer(done);
+  const done = station.put(chef, onto === 'plate');
+  if (done.ok || onto || !held || station.accepts(held)) return answer(done);
   const kinds = [...new Set(all(state).filter(each => each.accepts(held)).map(each => each.place.kind.replace('_', ' ')))];
   return refuse(`${done.message} It goes on: ${kinds.join(', ') || 'nothing; deliver it or throw it in the bin'}.`);
 };
@@ -273,11 +274,11 @@ function deliver(state: State, chef: Chef, id: string) {
 }
 
 // Every step: its form, what it does, and how it runs. The actions agents read and the parser both come from here.
-export const steps: Record<string, { form: string; description: string; run: (state: State, chef: Chef, target: string) => Outcome | Promise<Outcome> }> = {
+export const steps: Record<string, { form: string; description: string; run: (state: State, chef: Chef, target: string, extra?: string) => Outcome | Promise<Outcome> }> = {
   walk: { form: 'walk <station>', description: 'Walk to the floor in front of a station. Other steps act only on the station you are at.', run: walk },
   move: { form: 'move <spot>', description: 'Give up the station you are at when you are done there: you go to a spot on the floor, away from the stations, and another chef can use the station. To get to a station, use walk.', run: move },
   take: { form: 'take <station>', description: 'Take food from a crate, a plate from the plates, or what is on a station. If you hold a plate, ready food goes onto it.', run: take },
-  put: { form: 'put <station>', description: 'Put down what you hold: anything on a counter, food to cut on a board, food to cook on a stove. Ready food put where a plate is goes onto the plate. The bin throws food away and empties a plate.', run: put },
+  put: { form: 'put <station> [plate]', description: 'Put down what you hold: anything on an empty counter, food to cut on a board, food to cook on a stove. It is refused where a plate lies. To add ready food to the plate on a station, say plate after the station: put counter_2 plate. The bin throws food away and empties a plate.', run: put },
   cut: { form: 'cut <station>', description: 'Cut what is on a board, with empty hands. You keep cutting until it is cut.', run: work('cut') },
   wash: { form: 'wash <station>', description: 'Wash a dirty plate at the sink, with empty hands. It joins the clean plates.', run: work('wash') },
   spray: { form: 'spray <station>', description: 'Put out a fire, holding the extinguisher. You keep spraying until it is out.', run: work('spray') },
@@ -286,14 +287,14 @@ export const steps: Record<string, { form: string; description: string; run: (st
 };
 
 export function act(state: State, player: PlayerRef, text: string): Outcome | Promise<Outcome> {
-  const [name = '', target = ''] = text.trim().split(/\s+/);
+  const [name = '', target = '', extra] = text.trim().split(/\s+/);
   const entry = steps[name.toLowerCase()];
   if (!entry) return refuse(`Unknown step "${name}". Steps: ${Object.keys(steps).join(', ')}.`);
   if (state.phase !== 'service') return refuse(state.phase === 'lobby' ? 'Service has not started.' : 'Service is over.');
   const chef = state.chefs.find(each => each.id === player.id);
   if (!chef) return refuse('You are not in the kitchen.');
   if (!target) return refuse(`Say which: ${entry.form}.`);
-  return entry.run(state, chef, target);
+  return entry.run(state, chef, target, extra);
 }
 
 // Ends a chef's step under way where it is: a walk stops on the cell they reached, and work keeps what is done.

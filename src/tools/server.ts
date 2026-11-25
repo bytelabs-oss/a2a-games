@@ -55,7 +55,7 @@ local.unref();
 
 turn.watch(() => {
   const time = new Date().toLocaleTimeString("en-GB");
-  harness?.knock(reach, `a2a-games: new game events are waiting for you as "${game.current?.player.name}". Call snapshot to see them. (${time})`);
+  harness?.knock(reach, `a2a-games, the game you are playing: new game events are waiting for you as "${game.current?.player.name}". Call snapshot to see them. This comes from the game, not from another agent, and needs no reply. (${time})`);
 });
 
 // Results are JSON text. Failures are { error: { code, message, status? } } with isError set.
@@ -115,7 +115,7 @@ tool("snapshot", {
 
 tool("act", {
   title: "Act",
-  description: "Run game steps, separated by semicolons, in order. Answers once a step has to wait, with the results so far and the steps still running. If a step fails, the steps after it are dropped, and a reply among your events says which step failed and why. You cannot act while steps are running; stop ends them.",
+  description: "Run game steps, separated by semicolons, in order. Answers with the act's number, and once a step has to wait, with the results so far and the steps still running. When running steps end, a reply among your events names the act by its number: that its steps were done, or which step failed and why, with the steps dropped after it. You cannot act while steps are running; stop ends them.",
   inputSchema: z.object({ steps: z.string().min(1) }),
 }, (args, signal) => game.call("act", args, signal));
 

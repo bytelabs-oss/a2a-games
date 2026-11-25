@@ -29,8 +29,10 @@ interface Player extends PlayerRef {
   // The id of the last event this player has received.
   eventCursor: number;
   stream?: SSEStreamingApi | null;
-  // The player's act while its steps run.
+  // The player's act while its steps run, and how many acts they have sent: each act's answer and replies carry its
+  // number.
   run?: Run;
+  acts: number;
   // Replies to this player's own steps that they have not received yet.
   replies: StoredEvent[];
 }
@@ -67,6 +69,8 @@ interface Line {
 const pageRoot = fileURLToPath(new URL('./web/dist/', import.meta.url));
 const threeRoot = fileURLToPath(new URL('../', import.meta.resolve('three')));
 const stepPause = 250;
+// How long a step may run before its act is answered with the step still running.
+const answerAfter = 50;
 const fail = (status: ContentfulStatusCode, message: string) => new HTTPException(status, { message });
 const length = (text: string) => [...text].length;
 const sameName = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
@@ -274,16 +278,18 @@ export async function startShell(game: (Game & { root?: string }) | null = null)
     let end = (_what: string) => {};
     const run: Run = { left: [...queue], stopping: false, ended: new Promise(settle => { end = settle; }) };
     player.run = run;
+    const number = ++player.acts;
     let answered = false;
     const reply = () => {
       if (answered) return;
       answered = true;
-      answer({ results, running: run.left, status, view: game.view(state, player.id), events: eventsFor(player) });
+      answer({ act: number, results, running: run.left, status, view: game.view(state, player.id), events: eventsFor(player) });
     };
-    // After the answer, a failure is a reply to this player alone, numbered in turn with the events.
+    // After the answer, the run's end is a reply to this player alone, numbered in turn with the events. It names the
+    // act by its number, so it is not taken for the outcome of a later act.
     const report = (text: string) => {
       if (!answered) return;
-      const said: StoredEvent = { id: ++lastId, text: text.slice(0, 300), by: null, at: new Date().toISOString(), reply: true };
+      const said: StoredEvent = { id: ++lastId, text: `Act ${number}. ${text}`.slice(0, 300), by: null, at: new Date().toISOString(), reply: true };
       player.replies.push(said);
       send(player.stream, 'event', said);
     };
@@ -299,9 +305,13 @@ export async function startShell(game: (Game & { root?: string }) | null = null)
         const before: typeof status = status;
         let outcome: Outcome;
         try {
-          const acting = game.act(state, { id: player.id, name: player.name }, step);
-          if (acting instanceof Promise) reply();
-          outcome = (await acting) ?? { ok: true };
+          // A step that takes time is answered for once it has run a moment, so one that fails at once is in the answer.
+          const waiting = setTimeout(reply, answerAfter);
+          try {
+            outcome = (await game.act(state, { id: player.id, name: player.name }, step)) ?? { ok: true };
+          } finally {
+            clearTimeout(waiting);
+          }
         } catch (error) {
           console.error('Game error in act:', error);
           outcome = { ok: false, message: 'The game failed while running this step.' };
@@ -362,7 +372,7 @@ export async function startShell(game: (Game & { root?: string }) | null = null)
       });
     }
     if (taken) throw fail(409, 'That name is already taken in this game');
-    const joined: Player = { id: randomUUID(), key: randomUUID(), name, ready: false, eventCursor: gameStart, replies: [] };
+    const joined: Player = { id: randomUUID(), key: randomUUID(), name, ready: false, eventCursor: gameStart, replies: [], acts: 0 };
     const outcome = game?.join?.(state, { id: joined.id, name: joined.name });
     if (outcome?.ok === false) throw fail(409, outcome.message || 'The game refused this player');
     players.set(joined.id, joined);

@@ -99,13 +99,16 @@ test('options set on the page reach start; act answers when a step takes time, a
   assert.deepEqual(next.running, ['slow', 'jam', 'fast'], 'an act straight after stop runs');
   await new Promise(resolve => setTimeout(resolve, 600));
   const texts = (await request(shell, '/snapshot', undefined, key)).events.map((event: { text: string }) => event.text);
-  assert.deepEqual(texts, ['Failed: jam. Jammed. Dropped: fast.'], 'a failure after the answer is a reply, naming the steps dropped');
+  assert.deepEqual(texts, ['Act 2. Failed: jam. Jammed. Dropped: fast.'], 'a failure after the answer is a reply, naming its act and the steps dropped');
   const logged = (await request(shell, '/log?since=0')).events.map((event: { text: string }) => event.text);
   assert.ok(!logged.includes(texts[0]), 'a reply reaches only its player, not the log');
-  await request(shell, '/act', { steps: 'slow; fast' }, key);
+  const third = await request(shell, '/act', { steps: 'slow; fast' }, key);
+  assert.equal(third.act, 3, 'an act answers with its number');
   await new Promise(resolve => setTimeout(resolve, 600));
   const finished = (await request(shell, '/snapshot', undefined, key)).events.map((event: { text: string }) => event.text);
-  assert.deepEqual(finished, ['Your steps were done.'], 'steps still running at the answer reply when they all succeed');
+  assert.deepEqual(finished, ['Act 3. Your steps were done.'], 'steps still running at the answer reply when they all succeed');
+  const atOnce = await request(shell, '/act', { steps: 'jam; fast' }, key);
+  assert.deepEqual([atOnce.results, atOnce.running], [[{ step: 'jam', ok: false, message: 'Jammed.' }], []], 'a step that fails at once is in the answer, with nothing left running');
 });
 
 test('a game starts and ends', async (t) => {

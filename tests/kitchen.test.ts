@@ -81,6 +81,16 @@ test('a chef working at a station keeps it, and a chef with nothing running give
   assert.notDeepEqual({ x: chef('oak')?.x, y: chef('oak')?.y }, where, 'and steps back from it');
 });
 
+test('a chef done at a station frees it, stepping back onto the floor', async () => {
+  const { act, chef } = kitchen();
+  assert.match((await act('free board_1')).message ?? '', /You are not at board_1/);
+  assert.equal((await act('walk board_1')).ok, true);
+  const where = { x: chef().x, y: chef().y };
+  assert.equal((await act('free board_1')).ok, true);
+  assert.equal(chef().at, null, 'the board is free');
+  assert.notDeepEqual({ x: chef().x, y: chef().y }, where, 'and the chef has stepped back from it');
+});
+
 test('steak cooks by itself on a stove, then burns, then becomes a fire', async () => {
   const { act, pass, look } = kitchen();
   await act('walk steak_crate; take steak_crate; walk board_1; put board_1; cut board_1; take board_1; walk stove_1; put stove_1');

@@ -40,7 +40,7 @@ function kitchen() {
   };
   // What a station shows: its view, as the page and the chefs see it.
   const look = (id: string) => state.stations[id]?.view(false);
-  return { state, act, pass, look, oak, chef: () => state.chefs[0] };
+  return { state, act, pass, look, chef: () => state.chefs[0] };
 }
 
 test('a chef cuts, plates and delivers a salad, which scores its points', async () => {
@@ -64,31 +64,23 @@ test('steps are refused where they do not fit', async () => {
   assert.match((await act('walk board_1; put board_1')).message ?? '', /does not take/, 'plates go on counters and delivery only');
 });
 
-test('a chef working at a station keeps it, and a chef with nothing running gives it up', async () => {
-  const { state, act, oak } = kitchen();
+test('only one chef can be at a station, until they move to a spot, and only one chef on a spot', async () => {
+  const { state, act } = kitchen();
   const ash = { id: 'ash', name: 'Ash' };
   game.join(state, ash);
   const chef = (id: string) => state.chefs.find(each => each.id === id);
-  assert.equal((await act('walk lettuce_crate; take lettuce_crate; walk board_1; put board_1')).ok, true);
-  void game.act(state, oak, 'cut board_1');
-  assert.match((game.act(state, ash, 'walk board_1') as Outcome).message ?? '', /Oak is working at board_1/);
-  assert.equal(chef('ash')?.at, null, 'a refused walk leaves the chef where they were');
-  game.stop(state, oak);
-  const where = { x: chef('oak')?.x, y: chef('oak')?.y };
-  assert.equal((await act('walk board_1', ash)).ok, true, 'Oak has nothing running, so Ash may walk up');
-  assert.equal(chef('ash')?.at?.id, 'board_1');
-  assert.equal(chef('oak')?.at, null, 'Oak gives the board up');
-  assert.notDeepEqual({ x: chef('oak')?.x, y: chef('oak')?.y }, where, 'and steps back from it');
-});
-
-test('a chef done at a station frees it, stepping back onto the floor', async () => {
-  const { act, chef } = kitchen();
-  assert.match((await act('free board_1')).message ?? '', /You are not at board_1/);
+  const spotsSeen = () => (game.view(state, null) as { spots: Record<string, { chef: string | null }> }).spots;
   assert.equal((await act('walk board_1')).ok, true);
-  const where = { x: chef().x, y: chef().y };
-  assert.equal((await act('free board_1')).ok, true);
-  assert.equal(chef().at, null, 'the board is free');
-  assert.notDeepEqual({ x: chef().x, y: chef().y }, where, 'and the chef has stepped back from it');
+  assert.match((game.act(state, ash, 'walk board_1') as Outcome).message ?? '', /Oak is at board_1/);
+  assert.equal(chef('ash')?.at, null, 'a refused walk leaves the chef where they were');
+  assert.equal((await act('move spot_1')).ok, true);
+  assert.deepEqual([chef('oak')?.at, chef('oak')?.spot, spotsSeen().spot_1?.chef], [null, 'spot_1', 'Oak'], 'Oak left the board for the spot');
+  assert.equal((await act('walk board_1', ash)).ok, true, 'the board is free for Ash');
+  assert.match((game.act(state, ash, 'move spot_1') as Outcome).message ?? '', /Oak is on spot_1/);
+  assert.equal(chef('ash')?.at?.id, 'board_1', 'a refused move leaves the chef where they were');
+  assert.match((await act('move nowhere')).message ?? '', /no spot called nowhere/);
+  await act('walk board_2');
+  assert.equal(spotsSeen().spot_1?.chef, null, 'walking away empties the spot');
 });
 
 test('steak cooks by itself on a stove, then burns, then becomes a fire', async () => {

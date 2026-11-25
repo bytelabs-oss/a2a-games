@@ -2,6 +2,7 @@
 // announced. What the things in it are lives in things.ts. The rules play with these and the scene draws them, so both
 // import this file.
 import type {
+  Cell,
   ChefRules, Direction, DishRules, EventRules, KitchenEvent, Piece, Place, ServiceRules, StationKind,
 } from './types.ts';
 import { article, words, type CrateKind } from './things.ts';
@@ -19,6 +20,9 @@ export const floorPlan: readonly string[] = [
 
 export const tiles: Partial<Record<string, StationKind>> = { '#': 'counter', B: 'board', F: 'stove', P: 'delivery', S: 'sink', D: 'plates', X: 'bin', E: 'extinguisher_hook' };
 export const crates: Partial<Record<string, CrateKind>> = { l: 'Lettuce', t: 'Tomato', h: 'Cheese', o: 'Onion', b: 'Bun', m: 'Steak' };
+
+// Named floor cells away from every station, where a chef stands out of the way. One chef fits on a spot.
+export const spots: readonly (Cell & { id: string })[] = [3, 4, 5, 6].map((x, index) => ({ id: `spot_${index + 1}`, x, y: 5 }));
 
 // Grid steps, in the order a station looks for the floor it is worked from: the camera side first.
 export const directions: Record<Direction, readonly [number, number]> = { down: [0, 1], up: [0, -1], left: [-1, 0], right: [1, 0] };

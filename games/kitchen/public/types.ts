@@ -106,6 +106,8 @@ export interface ChefView extends Cell {
   working: StepName | null;
   // The station the chef is at, which no other chef can be at.
   at: string | null;
+  // The spot the chef is on, which no other chef can be on.
+  spot: string | null;
   hands: ItemView[];
 }
 
@@ -136,6 +138,8 @@ export interface PageView {
   orders?: Order[];
   chefs?: ChefView[];
   stations?: Record<string, StationView>;
+  // Every spot, with the name of the chef on it, or null when it is empty.
+  spots?: Record<string, Cell & { chef: string | null }>;
 }
 
 export interface ChefOwnView extends PageView {

@@ -2,17 +2,14 @@
 // service begins and finishes. A step names a station or an order, and the station decides what the step does there
 // (objects.ts). A step that takes time, walking or working, returns a promise that the tick settles when it is done.
 import type { Outcome, PlayerRef, SettingValue } from '../../src/shell/types.ts';
-import { announce, soundOf, chefRules, directions, dishes, floorPlan, plateCount, service, starScores, stations as places } from './public/kitchen.ts';
+import { announce, soundOf, chefRules, directions, dishes, floorPlan, plateCount, service, spots, starScores, stations as places } from './public/kitchen.ts';
 import { DirtyPlate, Extinguisher, Plate, crateFoods, type Item } from './public/things.ts';
 import type { Cell, ChefOwnView, ChefView, Direction, DishName, KitchenEvent, Order, PageView, Phase, Place, Seconds, StepName } from './public/types.ts';
 import { Belt, Bin, Board, Counter, Crate, Hook, PlateRack, Sink, Station, Stove, viewOf, type Done, type Hands } from './objects.ts';
 
-// What a chef is busy with: walking to a station, or working a step there. finish settles the step's promise.
-interface Task {
-  doing: 'walk' | StepName;
-  station: Station;
-  finish: (outcome: Outcome) => void;
-}
+// What a chef is busy with: walking somewhere, or working a step at a station. arrive says what reaching the end of
+// the walk comes to, and finish settles the step's promise.
+type Task = { finish: (outcome: Outcome) => void } & ({ doing: 'walk'; arrive: () => Outcome } | { doing: StepName; station: Station });
 
 // A chef is a pair of hands at a cell. They hold one item at a time.
 export interface Chef extends Omit<ChefView, 'hands' | 'at'>, Hands {
@@ -21,8 +18,7 @@ export interface Chef extends Omit<ChefView, 'hands' | 'at'>, Hands {
   path: Cell[];
   stepIn: Seconds;
   task: Task | null;
-  // The station the chef is at: the one they last walked to, until they walk away or another chef takes it while they
-  // have no step running. Only one chef is at a station.
+  // The station the chef is at: the one they last walked to, until they walk away. Only one chef is at a station.
   at: Station | null;
 }
 
@@ -104,7 +100,7 @@ export function join(state: State, player: PlayerRef): Outcome | void {
   const start = chefRules.starts[seat];
   if (!start) return refuse(`The kitchen has ${chefRules.starts.length} chefs, all here.`);
   state.chefs.push({
-    id: player.id, name: player.name, seat, ...start, facing: 'down', working: null, held: null, ready: false, path: [], stepIn: 0, task: null, at: null,
+    id: player.id, name: player.name, seat, ...start, facing: 'down', working: null, held: null, ready: false, path: [], stepIn: 0, task: null, at: null, spot: null,
   });
 }
 
@@ -134,7 +130,7 @@ export function start(state: State, options: Record<string, SettingValue>): Outc
   const firstOrder = placeOrder(state);
   state.chefs.forEach(chef => {
     chef.task?.finish(refuse('Service started over.'));
-    Object.assign(chef, { ...chefRules.starts[chef.seat], facing: 'down', working: null, held: null, path: [], task: null, at: null });
+    Object.assign(chef, { ...chefRules.starts[chef.seat], facing: 'down', working: null, held: null, path: [], task: null, at: null, spot: null });
   });
   return ok('Service starts.', [{ type: 'serviceStarted' }, firstOrder]);
 }
@@ -155,12 +151,6 @@ export function end(state: State): Outcome {
 
 // The chef at a station other than the given one.
 const holderOf = (state: State, station: Station, chef: Chef) => state.chefs.find(each => each !== chef && each.at === station);
-// A chef with nothing running gives a station up to another chef, stepping back from it onto the floor.
-function giveWay(chef: Chef, station: Station) {
-  chef.at = null;
-  const back = step(front(station.place), station.place.facing);
-  if (isFloor(back)) Object.assign(chef, back);
-}
 
 // The station a step names, when the chef is at it and nothing there stops the step; otherwise why not. A fire stops
 // everything but spraying it, and a rat everything but shooing it.
@@ -173,12 +163,11 @@ function at(state: State, chef: Chef, id: string, doing?: StepName): Station | O
   return station;
 }
 
-// A chef reaching a station is at it, unless another chef is working there. A chef there with nothing running gives way.
+// A chef reaching a station is at it, unless another chef got there first.
 function arrive(state: State, chef: Chef, station: Station): Outcome {
   chef.facing = opposite[station.place.facing];
   const other = holderOf(state, station, chef);
-  if (other?.task) return refuse(`${other.name} is working at ${station.id}. Only one chef can be at a station.`);
-  if (other) giveWay(other, station);
+  if (other) return refuse(`${other.name} got to ${station.id} first. Only one chef can be at a station.`);
   chef.at = station;
   return ok(`You are at ${station.id}.`);
 }
@@ -204,32 +193,40 @@ function route(from: Cell, to: Cell): Cell[] | null {
   return null;
 }
 
-// Hands a chef a task and returns the promise the tick settles when it is done.
-const busy = (chef: Chef, doing: Task['doing'], station: Station) => new Promise<Outcome>(finish => {
+// Hands a chef a step to work at a station and returns the promise the tick settles when it is done.
+const busy = (chef: Chef, doing: StepName, station: Station) => new Promise<Outcome>(finish => {
   chef.task = { doing, station, finish };
-  chef.working = doing === 'walk' ? null : doing;
+  chef.working = doing;
 });
+
+// Sets a chef walking to a cell, leaving the station or spot they were at. arrive says what getting there comes to.
+function go(chef: Chef, to: Cell, arrive: () => Outcome): Outcome | Promise<Outcome> | null {
+  const path = route(chef, to);
+  if (!path) return null;
+  chef.at = chef.spot = null;
+  chef.path = path;
+  chef.stepIn = 1 / chefRules.speed;
+  return path.length ? new Promise<Outcome>(finish => { chef.task = { doing: 'walk', arrive, finish }; }) : arrive();
+}
 
 function walk(state: State, chef: Chef, id: string) {
   const station = state.stations[id];
   if (!station) return refuse(`There is no station called ${id}.`);
   const other = holderOf(state, station, chef);
-  if (other?.task) return refuse(`${other.name} is working at ${id}. Only one chef can be at a station.`);
-  const path = route(chef, front(station.place));
-  if (!path) return refuse(`There is no way to walk to ${id}.`);
-  chef.at = null;
-  chef.path = path;
-  chef.stepIn = 1 / chefRules.speed;
-  return path.length ? busy(chef, 'walk', station) : arrive(state, chef, station);
+  if (other) return refuse(`${other.name} is at ${id}. Only one chef can be at a station.`);
+  return go(chef, front(station.place), () => arrive(state, chef, station)) ?? refuse(`There is no way to walk to ${id}.`);
 }
 
-// A chef done at a station steps back from it onto the floor, so another chef can use it.
-function free(state: State, chef: Chef, id: string) {
-  const station = state.stations[id];
-  if (!station) return refuse(`There is no station called ${id}.`);
-  if (chef.at !== station) return refuse(`You are not at ${id}.`);
-  giveWay(chef, station);
-  return ok(`You stepped back from ${id}. It is free.`);
+// A chef on a spot other than the given chef.
+const standerOn = (state: State, id: string, chef: Chef) => state.chefs.find(each => each !== chef && each.spot === id);
+
+// A chef moves to a spot they name, out of the way of the stations. Only one chef is on a spot.
+function move(state: State, chef: Chef, id: string) {
+  const spot = spots.find(each => each.id === id);
+  if (!spot) return refuse(`There is no spot called ${id}. Spots: ${spots.map(each => each.id).join(', ')}.`);
+  const taken = (other: Chef | undefined, how: string) => (other ? refuse(`${other.name} ${how}. Only one chef can be on a spot.`) : null);
+  const land = () => taken(standerOn(state, id, chef), `got to ${id} first`) ?? ((chef.spot = id), ok(`You are on ${id}.`));
+  return taken(standerOn(state, id, chef), `is on ${id}`) ?? go(chef, spot, land) ?? refuse(`There is no way to move to ${id}.`);
 }
 
 const take = (state: State, chef: Chef, id: string) => {
@@ -278,7 +275,7 @@ function deliver(state: State, chef: Chef, id: string) {
 // Every step: its form, what it does, and how it runs. The actions agents read and the parser both come from here.
 export const steps: Record<string, { form: string; description: string; run: (state: State, chef: Chef, target: string) => Outcome | Promise<Outcome> }> = {
   walk: { form: 'walk <station>', description: 'Walk to the floor in front of a station. Other steps act only on the station you are at.', run: walk },
-  free: { form: 'free <station>', description: 'Step back from the station you are at onto the floor, so another chef can use it.', run: free },
+  move: { form: 'move <spot>', description: 'Move to a spot on the floor, away from the stations. It leaves the station you were at for another chef.', run: move },
   take: { form: 'take <station>', description: 'Take food from a crate, a plate from the plates, or what is on a station. If you hold a plate, ready food goes onto it.', run: take },
   put: { form: 'put <station>', description: 'Put down what you hold: anything on a counter, food to cut on a board, food to cook on a stove. Ready food put where a plate is goes onto the plate. The bin throws food away and empties a plate.', run: put },
   cut: { form: 'cut <station>', description: 'Cut what is on a board, with empty hands. You keep cutting until it is cut.', run: work('cut') },
@@ -346,7 +343,7 @@ export function tick(state: State, seconds: number): { events: KitchenEvent[]; o
       changed = true;
     }
     if (!chef.path.length) {
-      finish(chef, arrive(state, chef, task.station));
+      finish(chef, task.arrive());
       changed = true;
     }
   }
@@ -415,8 +412,8 @@ export function tick(state: State, seconds: number): { events: KitchenEvent[]; o
 
 // ── Views ────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-const chefView = ({ id, name, seat, x, y, facing, working, held, at: station }: Chef): ChefView => ({
-  id, name, seat, x, y, facing, working, at: station?.id ?? null, hands: viewOf(held),
+const chefView = ({ id, name, seat, x, y, facing, working, held, at: station, spot }: Chef): ChefView => ({
+  id, name, seat, x, y, facing, working, at: station?.id ?? null, spot, hands: viewOf(held),
 });
 
 // Nothing in the kitchen is secret: every chef sees what the page sees, and themselves as `you`.
@@ -432,6 +429,7 @@ export function view(state: State, playerId: string | null): PageView | ChefOwnV
     orders: state.orders.map(order => ({ ...order, left: secondsLeft(order.left) })),
     chefs: state.chefs.map(chefView),
     stations: Object.fromEntries(all(state).map(station => [station.id, station.view(workingAt.has(station))])),
+    spots: Object.fromEntries(spots.map(({ id, x, y }) => [id, { x, y, chef: state.chefs.find(chef => chef.spot === id)?.name ?? null }])),
   };
   const you = state.chefs.find(chef => chef.id === playerId);
   return you ? { ...page, you: chefView(you) } : page;

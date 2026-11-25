@@ -25,7 +25,7 @@ const names = ['Alder', 'Birch', 'Clover', 'Finch'];
 
 // Chefs for a page view, in seats 0 to 3.
 const chefs = (list: string[], spots: Spot[]): ChefView[] => spots.map(([x, y, facing, working = null, holding = null], seat) => ({
-  id: `p${seat}`, name: list[seat] ?? '', seat, x, y, facing, working, at: null, hands: holding ? [holding.view()] : [],
+  id: `p${seat}`, name: list[seat] ?? '', seat, x, y, facing, working, at: null, spot: null, hands: holding ? [holding.view()] : [],
 }));
 // A plate with foods on it.
 function plate(...foods: PlateableKind[]): Item {

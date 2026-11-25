@@ -49,9 +49,9 @@ test('a chef cuts, plates and delivers a salad, which scores its points', async 
   assert.equal((await act('walk plates; take plates; walk counter_2; put counter_2')).ok, true);
   assert.equal(look('plates')?.stack?.count, plateCount - 1, 'a plate taken leaves the stack');
   for (const crate of ['lettuce_crate', 'tomato_crate', 'onion_crate']) {
-    assert.equal((await act(`walk ${crate}; take ${crate}; walk board_1; put board_1; cut board_1; take board_1; walk counter_2; put counter_2 plate`)).ok, true);
+    assert.equal((await act(`walk ${crate}; take ${crate}; walk board_1; put board_1; cut board_1; take board_1; walk counter_2; put plate_1`)).ok, true);
   }
-  assert.deepEqual(look('counter_2')?.items, [{ kind: 'Plate', foods: dishes.salad.foods }]);
+  assert.deepEqual(look('counter_2')?.items, [{ kind: 'Plate', id: 'plate_1', foods: dishes.salad.foods }]);
   assert.equal((await act('take counter_2; walk delivery_1; deliver o1')).ok, true);
   assert.equal(state.score, dishes.salad.points);
   assert.equal(look('sink')?.stack?.count, 1, 'the plate comes back dirty to the sink');
@@ -63,8 +63,10 @@ test('steps are refused where they do not fit', async () => {
   assert.match((await act('walk plates; take plates; take plates')).message ?? '', /hands are full/, 'hands hold one item');
   assert.match((await act('walk board_1; put board_1')).message ?? '', /does not take/, 'plates go on counters and delivery only');
   await act('walk counter_2; put counter_2; walk lettuce_crate; take lettuce_crate; walk board_1; put board_1; cut board_1; take board_1; walk counter_2');
-  assert.match((await act('put counter_2')).message ?? '', /A plate is on counter_2.*put counter_2 plate/, 'a put that does not name the plate is refused where a plate lies');
-  assert.match((await act('walk counter_1; put counter_1 plate')).message ?? '', /no plate on counter_1/);
+  assert.match((await act('put counter_2')).message ?? '', /plate_1 is on counter_2.*put plate_1/, 'a station with a plate on it takes nothing more');
+  assert.match((await act('walk counter_1; put plate_1')).message ?? '', /Walk to counter_2 first/, 'a plate takes food from the station it lies on');
+  assert.match((await act('put plate_4')).message ?? '', /plate_4 does not lie on a station/);
+  assert.equal((await act('walk counter_2; put plate_1')).ok, true);
 });
 
 test('only one chef can be at a station, until they move to a spot, and only one chef on a spot', async () => {

@@ -29,7 +29,7 @@ const chefs = (list: string[], spots: Spot[]): ChefView[] => spots.map(([x, y, f
 }));
 // A plate with foods on it.
 function plate(...foods: PlateableKind[]): Item {
-  const made = new Plate();
+  const made = new Plate('plate_1');
   const kinds: Record<PlateableKind, () => Plate['foods'][number]> = {
     CutLettuce: () => new CutLettuce(), CutTomato: () => new CutTomato(), CutCheese: () => new CutCheese(), CutOnion: () => new CutOnion(),
     Bun: () => new Bun(), CookedPatty: () => new CookedPatty(),
@@ -68,7 +68,7 @@ function stageSteps(): Step[] {
       });
     });
   }
-  const dirty = new DirtyPlate();
+  const dirty = new DirtyPlate('plate_1');
   const line = [dirty, dirty.wash()].map(thing => words(thing.kind));
   steps.push(
     { view: { phase: 'lobby', chefs: [], stations: { ...onHook, ...plates(0, 1) } }, note: `[${line[0]}] → ${line[1]}` },

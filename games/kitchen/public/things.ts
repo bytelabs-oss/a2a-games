@@ -68,10 +68,16 @@ export class BurntPatty extends Food implements Cookable { readonly kind = 'Burn
 
 // ── Plates and tools ─────────────────────────────────────────────────────────────────────────────────────────────
 
-// A clean plate holds ready food, one of each kind.
+// A clean plate holds ready food, one of each kind. It has a name of its own, as a station does, which it keeps while
+// it is dirty: food is put onto a plate by that name.
 export class Plate extends Item {
   readonly kind = 'Plate';
   foods: (Food & Plateable)[] = [];
+  readonly id: string;
+  constructor(id: string) {
+    super();
+    this.id = id;
+  }
   takes(thing: Thing): thing is Food & Plateable {
     return this.refuses(thing) === null;
   }
@@ -83,11 +89,22 @@ export class Plate extends Item {
     return null;
   }
   view(): ItemView {
-    return { kind: this.kind, foods: this.foods.map(food => food.kind as PlateableKind) };
+    return { kind: this.kind, id: this.id, foods: this.foods.map(food => food.kind as PlateableKind) };
   }
 }
 
-export class DirtyPlate extends Item implements Washable { readonly kind = 'DirtyPlate'; readonly washSeconds = seconds.wash; wash() { return new Plate(); } }
+export class DirtyPlate extends Item implements Washable {
+  readonly kind = 'DirtyPlate';
+  readonly washSeconds = seconds.wash;
+  readonly id: string;
+  constructor(id: string) {
+    super();
+    this.id = id;
+  }
+  wash() {
+    return new Plate(this.id);
+  }
+}
 
 export class Extinguisher extends Item { readonly kind = 'Extinguisher'; }
 
@@ -123,6 +140,8 @@ export type PlateableKind = 'CutLettuce' | 'CutTomato' | 'CutCheese' | 'CutOnion
 
 export interface ItemView {
   kind: ItemKind;
+  // A plate's name.
+  id?: string;
   // What is on a plate.
   foods?: PlateableKind[];
 }

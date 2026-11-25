@@ -25,7 +25,7 @@ const ok = (message: string, events: KitchenEvent[] = []): Done => ({ ok: true, 
 const refuse = (message: string): Done => ({ ok: false, message });
 const name = (thing: { kind: string }) => words(thing.kind);
 const describe = (item: Item) => (item instanceof Plate
-  ? (item.foods.length ? `a plate of ${item.foods.map(name).join(', ')}` : 'an empty plate') : article(name(item)));
+  ? `${item.id}, ${item.foods.length ? `a plate of ${item.foods.map(name).join(', ')}` : 'an empty plate'}` : article(name(item)));
 const progress = (fill: number, rate: number, warning = false): ProgressView => ({ fill, rate, warning });
 
 export abstract class Station {
@@ -62,7 +62,12 @@ export abstract class Station {
       .filter(Boolean).join('; ');
   }
 
-  put(hands: Hands, _ontoPlate = false): Done {
+  // The plate of that name lying here, if there is one.
+  plate(_id: string): Plate | undefined {
+    return undefined;
+  }
+
+  put(hands: Hands): Done {
     return refuse(hands.held ? `Nothing is put down on ${this.id}.` : 'Your hands are empty.');
   }
 
@@ -156,24 +161,21 @@ export abstract class Station {
 // How many things a counter, board or stove holds.
 export const surfaceCapacity = 1;
 
-// A surface holds up to `capacity` things it accepts. Food goes onto a plate here only when the put names the plate, and
-// food taken while holding a plate goes onto that plate.
+// A surface holds up to `capacity` things it accepts. A plate lying here covers it: food goes onto the plate by the
+// plate's own name, not the surface's. Food taken while holding a plate goes onto that plate.
 export abstract class Surface extends Station {
   readonly capacity: number = surfaceCapacity;
   items: Item[] = [];
 
-  put(hands: Hands, ontoPlate = false): Done {
+  plate(id: string) {
+    return this.items.find((item): item is Plate => item instanceof Plate && item.id === id);
+  }
+
+  put(hands: Hands): Done {
     const held = hands.held;
     if (!held) return refuse('Your hands are empty.');
     const plate = this.items.find((item): item is Plate => item instanceof Plate);
-    if (ontoPlate) {
-      if (!plate) return refuse(`There is no plate on ${this.id}.`);
-      if (!plate.takes(held)) return refuse(`The plate on ${this.id} ${plate.refuses(held)}.`);
-      plate.foods.push(held);
-      hands.held = null;
-      return ok(`Added the ${name(held)} to the plate on ${this.id}.`);
-    }
-    if (plate) return refuse(`A plate is on ${this.id}. To add what you hold to that plate: put ${this.id} plate.`);
+    if (plate) return refuse(`${plate.id} is on ${this.id}, so ${this.id} takes nothing more. To add what you hold to the plate: put ${plate.id}.`);
     if (!this.accepts(held)) return refuse(`${this.id} does not take ${describe(held)}.`);
     if (this.items.length >= this.capacity) return refuse(`${this.id} already holds ${this.items.map(describe).join(' and ')}.`);
     this.items.push(held);
@@ -353,24 +355,25 @@ export class Crate extends Station {
 
 // A stack of clean plates; a chef takes one at a time.
 export class PlateRack extends Station {
-  count: number;
+  // The clean plates, each with its name.
+  plates: Plate[];
 
   purpose() {
     return 'gives a clean plate, one at a time';
   }
   constructor(place: Place, count: number) {
     super(place);
-    this.count = count;
+    this.plates = Array.from({ length: count }, (_, index) => new Plate(`plate_${index + 1}`));
   }
   take(hands: Hands): Done {
     if (hands.held) return refuse(`Your hands are full: you hold ${describe(hands.held)}.`);
-    if (!this.count) return refuse(`There are no clean plates on ${this.id}.`);
-    this.count -= 1;
-    hands.held = new Plate();
+    const plate = this.plates.shift();
+    if (!plate) return refuse(`There are no clean plates on ${this.id}.`);
+    hands.held = plate;
     return ok(`You hold ${describe(hands.held)}.`);
   }
   view(working: boolean): StationView {
-    return { ...super.view(working), ...(this.count && { stack: { kind: 'Plate', count: this.count } }) };
+    return { ...super.view(working), ...(this.plates.length && { stack: { kind: 'Plate', count: this.plates.length } }) };
   }
 }
 
@@ -382,7 +385,7 @@ export class Sink extends Station {
   private readonly rack: PlateRack;
 
   purpose() {
-    return `takes dirty plates; a chef washes one here with empty hands in ${new DirtyPlate().washSeconds} seconds, and it joins the clean plates`;
+    return `takes dirty plates; a chef washes one here with empty hands in ${new DirtyPlate('').washSeconds} seconds, and it joins the clean plates`;
   }
   constructor(place: Place, rack: PlateRack) {
     super(place);
@@ -401,8 +404,7 @@ export class Sink extends Station {
     this.washedFor += seconds;
     if (this.washedFor < plate.washSeconds) return { status: 'working' };
     this.dirty.pop();
-    plate.wash();
-    this.rack.count += 1;
+    this.rack.plates.push(plate.wash());
     this.washedFor = 0;
     return { status: 'done', message: 'The plate is clean.' };
   }

@@ -3,7 +3,7 @@
 // (objects.ts). A step that takes time, walking or working, returns a promise that the tick settles when it is done.
 import type { Outcome, PlayerRef, SettingValue } from '../../src/shell/types.ts';
 import { announce, soundOf, chefRules, directions, dishes, floorPlan, plateCount, service, spots, starScores, stations as places } from './public/kitchen.ts';
-import { DirtyPlate, Extinguisher, Plate, crateFoods, type Item } from './public/things.ts';
+import { DirtyPlate, Extinguisher, Plate, article, crateFoods, words, type Item } from './public/things.ts';
 import type { Cell, ChefOwnView, ChefView, Direction, DishName, KitchenEvent, Order, PageView, Phase, Place, Seconds, StepName } from './public/types.ts';
 import { Belt, Bin, Board, Counter, Crate, Hook, PlateRack, Sink, Station, Stove, viewOf, type Done, type Hands } from './objects.ts';
 
@@ -234,14 +234,31 @@ const take = (state: State, chef: Chef, id: string) => {
   return station instanceof Station ? answer(station.take(chef)) : station;
 };
 
-// A refused put says which kinds of station take what the chef holds, as each station decides for itself.
-const put = (state: State, chef: Chef, id: string, onto = '') => {
-  if (onto && onto !== 'plate') return refuse(`Say put ${id}, or put ${id} plate to add what you hold to the plate there.`);
+// Food goes onto a plate by the plate's name, from the station the plate lies on.
+function plateUp(state: State, chef: Chef, id: string) {
+  if (chef.held instanceof Plate && chef.held.id === id) return refuse(`You hold ${id}. Take ready food from a station to put it onto the plate you hold.`);
+  const lies = all(state).find(each => each.plate(id));
+  if (!lies) return refuse(`${id} does not lie on a station.`);
+  const station = at(state, chef, lies.id);
+  if (!(station instanceof Station)) return station;
+  const plate = station.plate(id);
+  const held = chef.held;
+  if (!plate || !held) return refuse(held ? `${id} does not lie on a station.` : 'Your hands are empty.');
+  if (!plate.takes(held)) return refuse(`${id} ${plate.refuses(held)}.`);
+  plate.foods.push(held);
+  chef.held = null;
+  return ok(`You added ${article(words(held.kind))} to ${id} on ${station.id}.`);
+}
+
+// A put names the surface: a station, or a plate. A refused put on a station says which kinds of station take what the
+// chef holds, as each station decides for itself.
+const put = (state: State, chef: Chef, id: string) => {
+  if (!state.stations[id] && /^plate_\d+$/.test(id)) return plateUp(state, chef, id);
   const station = at(state, chef, id);
   if (!(station instanceof Station)) return station;
   const held = chef.held;
-  const done = station.put(chef, onto === 'plate');
-  if (done.ok || onto || !held || station.accepts(held)) return answer(done);
+  const done = station.put(chef);
+  if (done.ok || !held || station.accepts(held)) return answer(done);
   const kinds = [...new Set(all(state).filter(each => each.accepts(held)).map(each => each.place.kind.replace('_', ' ')))];
   return refuse(`${done.message} It goes on: ${kinds.join(', ') || 'nothing; deliver it or throw it in the bin'}.`);
 };
@@ -269,16 +286,16 @@ function deliver(state: State, chef: Chef, id: string) {
   state.orders = state.orders.filter(each => each !== order);
   state.score += points;
   chef.held = null;
-  all(state).find((station): station is Sink => station instanceof Sink)?.dirty.push(new DirtyPlate());
+  all(state).find((station): station is Sink => station instanceof Sink)?.dirty.push(new DirtyPlate(plate.id));
   return ok(`Served order ${id}. +${points}`, [{ type: 'orderServed', order: id, dish: order.dish, station: belt.id, chef: chef.name, points }]);
 }
 
 // Every step: its form, what it does, and how it runs. The actions agents read and the parser both come from here.
-export const steps: Record<string, { form: string; description: string; run: (state: State, chef: Chef, target: string, extra?: string) => Outcome | Promise<Outcome> }> = {
+export const steps: Record<string, { form: string; description: string; run: (state: State, chef: Chef, target: string) => Outcome | Promise<Outcome> }> = {
   walk: { form: 'walk <station>', description: 'Walk to the floor in front of a station. Other steps act only on the station you are at.', run: walk },
   move: { form: 'move <spot>', description: 'Give up the station you are at when you are done there: you go to a spot on the floor, away from the stations, and another chef can use the station. To get to a station, use walk.', run: move },
   take: { form: 'take <station>', description: 'Take food from a crate, a plate from the plates, or what is on a station. If you hold a plate, ready food goes onto it.', run: take },
-  put: { form: 'put <station> [plate]', description: 'Put down what you hold: anything on an empty counter, food to cut on a board, food to cook on a stove. It is refused where a plate lies. To add ready food to the plate on a station, say plate after the station: put counter_2 plate. The bin throws food away and empties a plate.', run: put },
+  put: { form: 'put <station or plate>', description: 'Put what you hold on a surface, named by its id. A station: anything on a counter, food to cut on a board, food to cook on a stove. A plate, such as plate_1: ready food goes onto it, from the station the plate lies on. A station with a plate on it takes nothing more. The bin throws food away and empties a plate.', run: put },
   cut: { form: 'cut <station>', description: 'Cut what is on a board, with empty hands. You keep cutting until it is cut.', run: work('cut') },
   wash: { form: 'wash <station>', description: 'Wash a dirty plate at the sink, with empty hands. It joins the clean plates.', run: work('wash') },
   spray: { form: 'spray <station>', description: 'Put out a fire, holding the extinguisher. You keep spraying until it is out.', run: work('spray') },
@@ -287,14 +304,14 @@ export const steps: Record<string, { form: string; description: string; run: (st
 };
 
 export function act(state: State, player: PlayerRef, text: string): Outcome | Promise<Outcome> {
-  const [name = '', target = '', extra] = text.trim().split(/\s+/);
+  const [name = '', target = ''] = text.trim().split(/\s+/);
   const entry = steps[name.toLowerCase()];
   if (!entry) return refuse(`Unknown step "${name}". Steps: ${Object.keys(steps).join(', ')}.`);
   if (state.phase !== 'service') return refuse(state.phase === 'lobby' ? 'Service has not started.' : 'Service is over.');
   const chef = state.chefs.find(each => each.id === player.id);
   if (!chef) return refuse('You are not in the kitchen.');
   if (!target) return refuse(`Say which: ${entry.form}.`);
-  return entry.run(state, chef, target, extra);
+  return entry.run(state, chef, target);
 }
 
 // Ends a chef's step under way where it is: a walk stops on the cell they reached, and work keeps what is done.
